@@ -1,0 +1,11 @@
+#!/bin/bash
+http=$(curl http://localhost:{{ Docker_ContainerPortHTTP }} -H "host: keepalived.domain.local" -s -I | grep -v "http")
+status=$(echo $http| awk '{print $2}')
+
+if [ $status != "200" ]
+then
+	echo "$status is not 200" >&2
+	exit 1;
+else
+	echo "keepalived.domain.local is $status"
+fi

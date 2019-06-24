@@ -1,0 +1,11 @@
+---
+version: '2'
+
+services: 
+  proxy:
+    image: {{ Docker_ImagePath }}
+    container_name: {{ Docker_ContainerName }}
+    restart: always
+    ports:
+        - "{{ Docker_ContainerPortHTTP }}:80"
+        - "{{ Docker_ContainerPortHTTPS }}:443"

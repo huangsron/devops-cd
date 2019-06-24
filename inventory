@@ -1,0 +1,8 @@
+[nginx]
+localhost ansible_connection=local 
+
+[nginx:vars]
+Docker_Env=dev
+#ansible_become_user=root
+#ansible_become_password=admin123@
+ansible_sudo_pass=admin123@

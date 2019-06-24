@@ -1,0 +1,91 @@
+- hosts: "{{ applyHosts }}"
+  sudo: yes
+  roles:
+    - role: ypsman.docker_compose
+      #docker_compose_version: "1.9.0"  # optional
+
+- name: Deploy nginx images 
+  hosts: "{{ applyHosts }}"
+  sudo: yes
+  vars:
+    Base_Dir: "/var/devops"
+    Build_Version: "{{build_version}}" 
+    Build_ImageName: "nginx_proxy:{{Build_Version}}"
+    Docker_Compose_Dir: "{{ Base_Dir }}/docker/nginx/{{ target }}"
+    Docker_Compose_File: "{{Docker_Compose_Dir}}/docker-compose.yml"
+    Docker_Compose_File_Env: "{{Docker_Compose_Dir}}/.env"
+    Docker_ImagePath: "{{ Build_ImageName }}"
+  vars_files:
+    - "vars/{{ target }}.yml"
+
+  tasks:
+
+    - name: get variables
+      debug:
+        msg: 
+        - "http: {{ Docker_ContainerPortHTTP }}"
+        - "https: {{ Docker_ContainerPortHTTPS }}"
+        - "container name: {{ Docker_ContainerName }}"
+
+    - name: "create deploy dir {{ Docker_Compose_Dir }}"
+      file:
+        path: "{{ Docker_Compose_Dir }}"
+        state: directory
+        mode: "u=rwx,g=rwx,o=r"
+        recurse: yes
+
+    - name: "create deploy dir {{ Docker_Compose_Dir }}/tests"
+      file:
+        path: "{{ Docker_Compose_Dir }}/tests"
+        state: directory
+        mode: "u=rwx,g=rwx,o=r"
+        recurse: yes
+
+    - name: "copy templates/run.sh to {{ Docker_Compose_Dir }}/run.sh"
+      copy:
+        src: "templates/run.sh"
+        dest: "{{ Docker_Compose_Dir }}/"
+        mode: "u=rwx,g=rw,o=r"
+
+    - name: "copy templates/Remove_Container.sh to {{ Docker_Compose_Dir }}/remove.sh"
+      copy:
+        src: "templates/Remove_Container.sh"
+        dest: "{{ Docker_Compose_Dir }}/remove.sh"
+        mode: "u=rwx,g=rw,o=r"
+
+    - name: set remote docker-compose.yml
+      template:
+        src: "templates/nginx/docker.j2"
+        dest: "{{ Docker_Compose_File }}"
+        mode: "u=rw,g=r,o=r"
+
+    - name: set remote test script
+      template:
+        src: "templates/tests/test.j2"
+        dest: "{{ Docker_Compose_Dir }}/tests/test.sh"
+        mode: "u=rwx,g=r,o=r"
+
+    - name: start container
+      shell: "docker-compose -f {{Docker_Compose_File}} up -d --force-recreate"
+      args:
+        chdir: "{{ Docker_Compose_Dir }}"
+
+    - name: check container
+      shell: "docker exec -i {{ Docker_ContainerName }} nginx -t"
+      args:
+        chdir: "{{ Docker_Compose_Dir }}"
+      register: nginx_status
+
+    - name: nginx status
+      debug:
+        var: nginx_status
+
+    - name: check url
+      shell: "./tests/test.sh"
+      args:
+        chdir: "{{ Docker_Compose_Dir }}"
+      register: nginx_check
+
+    - name: nginx check
+      debug:
+        var: nginx_check
